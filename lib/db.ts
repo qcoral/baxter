@@ -57,6 +57,26 @@ function getDb() {
         created_at TEXT NOT NULL DEFAULT (datetime('now'))
       )
     `);
+
+    // Create ai_flags table
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS ai_flags (
+        record_id TEXT PRIMARY KEY,
+        flagged INTEGER NOT NULL,
+        reason TEXT NOT NULL DEFAULT '',
+        model TEXT NOT NULL,
+        flagged_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )
+    `);
+
+    // Create api_cache table
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS api_cache (
+        key TEXT PRIMARY KEY,
+        data TEXT NOT NULL,
+        cached_at INTEGER NOT NULL
+      )
+    `);
   }
   return db;
 }
@@ -118,4 +138,70 @@ export function createReviewer(id: string, name: string): Reviewer {
     .prepare(`INSERT INTO reviewers (id, name) VALUES (?, ?)`)
     .run(id, name);
   return getDb().prepare('SELECT * FROM reviewers WHERE id = ?').get(id) as Reviewer;
+}
+
+// ── AI Flags ──────────────────────────────────────────────────────────────────
+
+export interface AiFlag {
+  record_id: string;
+  flagged: number; // 1 = flagged, 0 = clean
+  reason: string;
+  model: string;
+  flagged_at: string;
+}
+
+export function getAllAiFlags(): AiFlag[] {
+  return getDb().prepare('SELECT * FROM ai_flags').all() as AiFlag[];
+}
+
+export function getProcessedRecordIds(): Set<string> {
+  const rows = getDb().prepare('SELECT record_id FROM ai_flags').all() as { record_id: string }[];
+  return new Set(rows.map((r) => r.record_id));
+}
+
+export function deleteAiFlagsByType(flagged: boolean): void {
+  getDb()
+    .prepare('DELETE FROM ai_flags WHERE flagged = ?')
+    .run(flagged ? 1 : 0);
+}
+
+export function upsertAiFlag(
+  recordId: string,
+  flagged: boolean,
+  reason: string,
+  model: string
+): void {
+  getDb()
+    .prepare(
+      `INSERT INTO ai_flags (record_id, flagged, reason, model, flagged_at)
+       VALUES (?, ?, ?, ?, datetime('now'))
+       ON CONFLICT(record_id) DO UPDATE SET
+         flagged = excluded.flagged,
+         reason = excluded.reason,
+         model = excluded.model,
+         flagged_at = datetime('now')`
+    )
+    .run(recordId, flagged ? 1 : 0, reason, model);
+}
+
+// ── API Cache ─────────────────────────────────────────────────────────────────
+
+export function getApiCache(key: string): { data: string; cachedAt: number } | null {
+  const row = getDb()
+    .prepare('SELECT data, cached_at FROM api_cache WHERE key = ?')
+    .get(key) as { data: string; cached_at: number } | undefined;
+  return row ? { data: row.data, cachedAt: row.cached_at } : null;
+}
+
+export function setApiCache(key: string, data: string): void {
+  getDb()
+    .prepare(
+      `INSERT INTO api_cache (key, data, cached_at) VALUES (?, ?, ?)
+       ON CONFLICT(key) DO UPDATE SET data = excluded.data, cached_at = excluded.cached_at`
+    )
+    .run(key, data, Date.now());
+}
+
+export function deleteApiCache(key: string): void {
+  getDb().prepare('DELETE FROM api_cache WHERE key = ?').run(key);
 }

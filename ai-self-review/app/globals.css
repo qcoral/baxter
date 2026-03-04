@@ -1,0 +1,29 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  background-color: #1e1e2e;
+  color: #cdd6f4;
+}
+
+/* Thin scrollbar styled to Catppuccin surface */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #181825;
+}
+::-webkit-scrollbar-thumb {
+  background: #45475a;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #585b70;
+}

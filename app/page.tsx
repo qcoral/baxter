@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import Link from 'next/link';
 import { io } from 'socket.io-client';
 import type { AirtableProject } from '@/lib/airtable';
 import type { Review, Reviewer } from '@/lib/db';
@@ -463,6 +464,30 @@ export default function Page() {
           {/* Header */}
           <header className="flex items-center gap-3 px-4 h-12 bg-white border-b border-gray-200 flex-shrink-0">
             <span className="font-bold text-gray-900">Baxter</span>
+        <Link
+          href="/flags"
+          className="text-xs text-gray-500 hover:text-violet-600 transition-colors px-2 py-1 rounded hover:bg-violet-50"
+        >
+          ✦ AI Flags
+        </Link>
+        <Link
+          href="/users"
+          className="text-xs text-gray-500 hover:text-indigo-600 transition-colors px-2 py-1 rounded hover:bg-indigo-50"
+        >
+          Users
+        </Link>
+        <Link
+          href="/printlegion"
+          className="text-xs text-gray-500 hover:text-emerald-600 transition-colors px-2 py-1 rounded hover:bg-emerald-50"
+        >
+          PrintLegion
+        </Link>
+        <Link
+          href="/checker"
+          className="text-xs text-gray-500 hover:text-blue-600 transition-colors px-2 py-1 rounded hover:bg-blue-50"
+        >
+          Checker
+        </Link>
             <div className="h-4 w-px bg-gray-200" />
             <nav className="flex gap-1">
               {(['unreviewed', 'all', 'good', 'minor_issue', 'major_issue'] as Filter[]).map((tab) => (

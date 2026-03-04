@@ -10,10 +10,15 @@ out/
 .env.local
 .env.*.local
 
+defs/*
+
 # Local review database (contains PII from reviewed projects)
 *.db
 *.db-shm
 *.db-wal
+
+# Database backups
+backups/
 
 # OS / editor noise
 .DS_Store

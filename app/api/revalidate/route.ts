@@ -1,7 +1,7 @@
-import { revalidateTag } from 'next/cache';
 import { NextResponse } from 'next/server';
+import { invalidateProjectsCache } from '@/lib/airtable';
 
 export async function POST() {
-  revalidateTag('airtable-projects');
+  invalidateProjectsCache();
   return NextResponse.json({ ok: true });
 }

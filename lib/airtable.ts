@@ -1,5 +1,3 @@
-import { unstable_cache } from 'next/cache';
-
 export interface Screenshot {
   id: string;
   url: string;
@@ -26,7 +24,8 @@ export interface ProjectFields {
   'Geocoded - Country'?: string;
   'Age When Approved'?: number;
   'Approved At'?: string;
-  'YSWS–Name'?: string[];
+  'YSWS'?: string[];       // multipleRecordLinks — linked program record IDs (matches hardware.toml)
+  'YSWS–Name'?: string[]; // rollup of the program name (display only)
   'Description'?: string;
   'Screenshot'?: Screenshot[];
   'Repo - Language'?: string;
@@ -41,18 +40,17 @@ export interface AirtableProject {
   fields: ProjectFields;
 }
 
-async function fetchAllProjectsUncached(): Promise<AirtableProject[]> {
+async function fetchFromView(view: string): Promise<AirtableProject[]> {
   const token = process.env.AIRTABLE_ACCESS_TOKEN;
   const baseId = process.env.AIRTABLE_BASE_ID;
   const tableId = process.env.AIRTABLE_TABLE_ID;
-  const view = process.env.AIRTABLE_VIEW;
 
   const all: AirtableProject[] = [];
   let offset: string | undefined;
 
   do {
     const params = new URLSearchParams({
-      view: view!,
+      view,
       'sort[0][field]': 'Approved At',
       'sort[0][direction]': 'asc',
     });
@@ -79,9 +77,34 @@ async function fetchAllProjectsUncached(): Promise<AirtableProject[]> {
   return all;
 }
 
-// Cache the entire multi-page fetch as one unit so stale offset cursors are never re-used
-export const fetchAllProjects = unstable_cache(
-  fetchAllProjectsUncached,
-  ['airtable-projects'],
-  { revalidate: 300, tags: ['airtable-projects'] }
-);
+const CACHE_TTL_MS = 5 * 60 * 1000;
+
+// Creates an independent in-memory cache + single-flight fetcher for one Airtable view
+function makeViewFetcher(envVar: string) {
+  let cache: { projects: AirtableProject[]; fetchedAt: number } | null = null;
+  let pending: Promise<AirtableProject[]> | null = null;
+
+  function invalidate() {
+    cache = null;
+  }
+
+  async function fetch(): Promise<AirtableProject[]> {
+    if (cache && Date.now() - cache.fetchedAt < CACHE_TTL_MS) return cache.projects;
+    if (pending) return pending;
+    pending = fetchFromView(process.env[envVar]!)
+      .then((projects) => { cache = { projects, fetchedAt: Date.now() }; pending = null; return projects; })
+      .catch((err) => { pending = null; throw err; });
+    return pending;
+  }
+
+  return { fetch, invalidate };
+}
+
+const blueprintView = makeViewFetcher('BLUEPRINT_AIRTABLE_VIEW');
+const hardwareView = makeViewFetcher('HARDWARE_AIRTABLE_VIEW');
+
+export const fetchAllProjects = blueprintView.fetch;
+export const invalidateProjectsCache = blueprintView.invalidate;
+
+export const fetchHardwareProjects = hardwareView.fetch;
+export const invalidateHardwareProjectsCache = hardwareView.invalidate;
