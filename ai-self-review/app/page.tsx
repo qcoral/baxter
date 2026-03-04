@@ -146,6 +146,15 @@ export default function CheckerPage() {
       </header>
 
       <div className="flex flex-col flex-1 min-h-0 p-4 gap-3 w-full max-w-7xl mx-auto">
+        {/* About blurb */}
+        <p className="text-xs text-ctp-subtext0 leading-relaxed max-w-2xl">
+          This checker is aimed to help catch simple mistakes like missing files, but it is{' '}
+          <em>not</em> an end-all for project review. The goal of adding all of these files is{' '}
+          <em>not</em> to pass an imaginary bar we set at Blueprint. It is to make sure your
+          project is shipped &amp; usable by other people, and that you will have something you
+          are proud to look back on later down the line.
+        </p>
+
         {/* URL input */}
         <div className="flex flex-col gap-2">
           <form onSubmit={handleSubmit} className="flex gap-2">
