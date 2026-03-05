@@ -12,6 +12,15 @@ import {
 
 const MODEL = 'claude-haiku-4-5-20251001';
 const MAX_TOOL_ROUNDS = 10;
+
+// Pricing for claude-haiku-4-5 (per Anthropic pricing page)
+const COST_PER_M_INPUT  = 0.80;  // USD per million input tokens
+const COST_PER_M_OUTPUT = 4.00;  // USD per million output tokens
+
+function calcCost(inputTok: number, outputTok: number): string {
+  const usd = (inputTok * COST_PER_M_INPUT + outputTok * COST_PER_M_OUTPUT) / 1_000_000;
+  return `$${usd.toFixed(4)}`;
+}
 const MAX_FILE_BYTES = 100 * 1024;
 const MAX_CONTENT_CHARS = 3000;
 
@@ -142,6 +151,8 @@ Please review this repository against the submission criteria.`;
         const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
         const messages: Anthropic.MessageParam[] = [{ role: 'user', content: initialMessage }];
 
+        let totalCostUsd = 0;
+
         for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
           send({ type: 'status', message: `[Round ${round + 1}/${MAX_TOOL_ROUNDS}] Calling ${MODEL}…` });
 
@@ -168,7 +179,11 @@ Please review this repository against the submission criteria.`;
             }
           }
 
-          send({ type: 'debug', message: `→ stop_reason: ${response.stop_reason} | in: ${response.usage.input_tokens} tok | out: ${response.usage.output_tokens} tok` });
+          const inTok = response.usage.input_tokens;
+          const outTok = response.usage.output_tokens;
+          const roundCost = (inTok * COST_PER_M_INPUT + outTok * COST_PER_M_OUTPUT) / 1_000_000;
+          totalCostUsd += roundCost;
+          send({ type: 'debug', message: `→ stop_reason: ${response.stop_reason} | in: ${inTok} tok | out: ${outTok} tok | ${calcCost(inTok, outTok)} (total: $${totalCostUsd.toFixed(4)})` });
 
           const assistantContent: Anthropic.ContentBlock[] = [];
           const toolUseBlocks = response.content.filter(b => b.type === 'tool_use');

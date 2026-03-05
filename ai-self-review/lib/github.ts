@@ -6,16 +6,24 @@ export interface TreeEntry {
   size?: number;
 }
 
+const GH_PROXY = 'https://gh-proxy.hackclub.com';
+
 function githubHeaders(): HeadersInit {
-  const token = process.env.GITHUB_TOKEN;
+  const proxyKey = process.env.GH_PROXY_KEY;
   return {
     Accept: 'application/vnd.github+json',
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...(proxyKey ? { 'X-API-Key': proxyKey } : {}),
   };
 }
 
+// Route all GitHub REST API calls through gh-proxy for caching + rate limit pooling.
+// api.github.com/foo → gh-proxy.hackclub.com/gh/foo
+function proxyUrl(apiUrl: string): string {
+  return apiUrl.replace('https://api.github.com/', `${GH_PROXY}/gh/`);
+}
+
 async function githubFetch(url: string): Promise<Response> {
-  const res = await fetch(url, { headers: githubHeaders(), cache: 'no-store' });
+  const res = await fetch(proxyUrl(url), { headers: githubHeaders(), cache: 'no-store' });
   if (!res.ok) {
     const body = await res.text().catch(() => '');
     throw new Error(`GitHub API ${res.status}: ${body.slice(0, 200)}`);
@@ -130,7 +138,7 @@ export async function fetchImageBase64(
     if (typeof data.download_url !== 'string') {
       throw new Error(`Image too large and no download_url available: ${filePath}`);
     }
-    const imgRes = await fetch(data.download_url, { headers: githubHeaders(), cache: 'no-store' });
+    const imgRes = await fetch(data.download_url, { cache: 'no-store' });
     if (!imgRes.ok) throw new Error(`Failed to download image: ${imgRes.status}`);
     base64 = Buffer.from(await imgRes.arrayBuffer()).toString('base64');
   }
