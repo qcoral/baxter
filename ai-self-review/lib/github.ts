@@ -92,8 +92,11 @@ export function isImagePath(filePath: string): boolean {
   return IMAGE_EXTENSIONS.has(ext);
 }
 
+const CLAUDE_SUPPORTED_TYPES = new Set(['image/jpeg', 'image/png', 'image/gif', 'image/webp']);
+
 async function resizeIfNeeded(buf: Buffer, originalMediaType: string): Promise<{ data: string; mediaType: string }> {
-  if (buf.byteLength > 200 * 1024) {
+  // Convert if too large OR if the media type isn't supported by Claude
+  if (buf.byteLength > 200 * 1024 || !CLAUDE_SUPPORTED_TYPES.has(originalMediaType)) {
     const resized = await sharp(buf)
       .resize({ width: 800, height: 800, fit: 'inside', withoutEnlargement: true })
       .jpeg({ quality: 85 })
