@@ -12,6 +12,7 @@ export async function DELETE(req: Request) {
     deleteReview(recordId);
     return NextResponse.json({ ok: true });
   } catch (e) {
+    console.error('[DELETE /api/reviews]', e);
     return NextResponse.json({ error: String(e) }, { status: 500 });
   }
 }
@@ -25,6 +26,7 @@ export async function POST(req: Request) {
     upsertReview(recordId, status, notes ?? '', reviewerId ?? null);
     return NextResponse.json({ ok: true });
   } catch (e) {
+    console.error('[POST /api/reviews]', e);
     return NextResponse.json({ error: String(e) }, { status: 500 });
   }
 }

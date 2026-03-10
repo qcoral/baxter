@@ -6,6 +6,8 @@ let db: ReturnType<typeof Database> | null = null;
 function getDb() {
   if (!db) {
     db = new Database(process.env.DB_PATH ?? path.join(process.cwd(), 'reviews.db'));
+    db.pragma('journal_mode = WAL');
+    db.pragma('busy_timeout = 5000');
     db.exec(`
       CREATE TABLE IF NOT EXISTS reviews (
         record_id TEXT PRIMARY KEY,
