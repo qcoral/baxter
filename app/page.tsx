@@ -141,6 +141,7 @@ export default function Page() {
   const [saving, setSaving] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [autoCategorizing, setAutoCategorizing] = useState(false);
 
   // Multi-reviewer state
   const [currentReviewer, setCurrentReviewer] = useState<ReviewerInfo | null>(null);
@@ -156,6 +157,23 @@ export default function Page() {
     const data = await fetch('/api/projects').then((r) => r.json());
     setProjects(data);
     setRefreshing(false);
+  };
+
+  const handleAutoCategorize = async () => {
+    if (!confirm('Mark all projects with failing checks as "minor issue"?')) return;
+    setAutoCategorizing(true);
+    try {
+      const res = await fetch('/api/auto-categorize', { method: 'POST' });
+      const { marked, skipped } = await res.json();
+      alert(`Done — ${marked} marked as minor issue, ${skipped} skipped (already reviewed)`);
+      // Reload projects to reflect changes
+      const data = await fetch('/api/projects').then((r) => r.json());
+      setProjects(data);
+    } catch (e) {
+      alert(`Auto-categorize failed: ${e}`);
+    } finally {
+      setAutoCategorizing(false);
+    }
   };
 
   // Load projects
@@ -516,9 +534,16 @@ export default function Page() {
               ))}
             </nav>
             <button
+              onClick={handleAutoCategorize}
+              disabled={autoCategorizing}
+              className="ml-auto text-xs text-amber-600 hover:text-amber-800 disabled:opacity-50 transition-colors px-2 py-1 rounded hover:bg-amber-50"
+            >
+              {autoCategorizing ? 'Categorizing…' : 'Auto-categorize'}
+            </button>
+            <button
               onClick={handleRefresh}
               disabled={refreshing}
-              className="ml-auto text-xs text-gray-500 hover:text-gray-900 disabled:opacity-50 transition-colors px-2 py-1 rounded hover:bg-gray-100"
+              className="text-xs text-gray-500 hover:text-gray-900 disabled:opacity-50 transition-colors px-2 py-1 rounded hover:bg-gray-100"
             >
               {refreshing ? '↻ Refreshing…' : '↻ Refresh'}
             </button>
