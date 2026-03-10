@@ -292,7 +292,11 @@ export default function Page() {
     return () => added.forEach((el) => el.remove());
   }, [selectedId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const filteredProjects = useMemo(() => projects.filter((p) => {
+  const visibleProjects = useMemo(() =>
+    projects.filter((p) => p.fields['Automation - Status'] !== 'TO DELETE IN UNIFIED'),
+  [projects]);
+
+  const filteredProjects = useMemo(() => visibleProjects.filter((p) => {
     switch (filter) {
       case 'all': return true;
       case 'unreviewed': return !p.review;
@@ -300,15 +304,15 @@ export default function Page() {
       case 'minor_issue': return p.review?.status === 'minor_issue';
       case 'major_issue': return p.review?.status === 'major_issue';
     }
-  }), [projects, filter]);
+  }), [visibleProjects, filter]);
 
   const counts = useMemo(() => ({
-    all: projects.length,
-    unreviewed: projects.filter((p) => !p.review).length,
-    good: projects.filter((p) => p.review?.status === 'good').length,
-    minor_issue: projects.filter((p) => p.review?.status === 'minor_issue').length,
-    major_issue: projects.filter((p) => p.review?.status === 'major_issue').length,
-  }), [projects]);
+    all: visibleProjects.length,
+    unreviewed: visibleProjects.filter((p) => !p.review).length,
+    good: visibleProjects.filter((p) => p.review?.status === 'good').length,
+    minor_issue: visibleProjects.filter((p) => p.review?.status === 'minor_issue').length,
+    major_issue: visibleProjects.filter((p) => p.review?.status === 'major_issue').length,
+  }), [visibleProjects]);
 
   const handleReview = useCallback(
     async (status: 'good' | 'minor_issue' | 'major_issue') => {
@@ -390,11 +394,13 @@ export default function Page() {
     [selectedProject, saving, projects, currentReviewer]
   );
 
-  // Keyboard shortcuts: g = good, m = minor issue, i = major issue, r = open repo, c = focus notes
+  // Keyboard shortcuts: g = good, m = minor issue, i = major issue, r = open repo, c = focus notes, s = skip
   const handleReviewRef = useRef(handleReview);
   handleReviewRef.current = handleReview;
   const selectedProjectRef = useRef(selectedProject);
   selectedProjectRef.current = selectedProject;
+  const filteredProjectsRef = useRef(filteredProjects);
+  filteredProjectsRef.current = filteredProjects;
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.target as HTMLElement).tagName === 'TEXTAREA') return;
@@ -408,6 +414,12 @@ export default function Page() {
       if (e.key === 'c') {
         e.preventDefault();
         textareaRef.current?.focus();
+      }
+      if (e.key === 's') {
+        const list = filteredProjectsRef.current;
+        const idx = list.findIndex((p) => p.id === selectedProjectRef.current?.id);
+        const next = list[idx + 1];
+        if (next) setSelectedId(next.id);
       }
     };
     window.addEventListener('keydown', handler);
@@ -581,11 +593,11 @@ export default function Page() {
                         )}
                       </div>
                       <div className="flex items-center gap-1.5 mt-0.5 ml-3.5">
-                        <span className="text-xs text-gray-400">{p.fields['YSWS–Name']?.[0]}</span>
+                        <span className="text-xs text-gray-400">{p.fields['YSWS']?.[0]}</span>
                         <span className="text-xs text-gray-400">·</span>
                         <span className="text-xs text-gray-400">
-                          {p.fields['Approved At']
-                            ? new Date(p.fields['Approved At']).toLocaleDateString('en-US', {
+                          {p.fields['Automation - First Submitted At']
+                            ? new Date(p.fields['Automation - First Submitted At']).toLocaleDateString('en-US', {
                                 month: 'short',
                                 day: 'numeric',
                               })
@@ -614,23 +626,20 @@ export default function Page() {
                       {f['First Name']} {f['Last Name']}
                     </h1>
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1">
-                      {f['YSWS–Name']?.[0] && (
+                      {f['YSWS']?.[0] && (
                         <span className="text-xs bg-violet-100 text-violet-700 px-2 py-0.5 rounded font-medium">
-                          {f['YSWS–Name'][0]}
+                          {f['YSWS'][0]}
                         </span>
                       )}
-                      {f['Approved At'] && (
+                      {f['Automation - First Submitted At'] && (
                         <span className="text-sm text-gray-500">
-                          {new Date(f['Approved At']).toLocaleDateString('en-US', {
+                          {new Date(f['Automation - First Submitted At']).toLocaleDateString('en-US', {
                             year: 'numeric', month: 'long', day: 'numeric',
                           })}
                         </span>
                       )}
-                      {(f['Geocoded - Country'] ?? f['Country']) && (
-                        <span className="text-sm text-gray-500">{f['Geocoded - Country'] ?? f['Country']}</span>
-                      )}
-                      {f['Age When Approved'] != null && (
-                        <span className="text-sm text-gray-500">Age {f['Age When Approved']}</span>
+                      {f['Country'] && (
+                        <span className="text-sm text-gray-500">{f['Country']}</span>
                       )}
                     </div>
                   </div>
@@ -656,18 +665,51 @@ export default function Page() {
                   <FieldCard label="Playable URL" value={f['Playable URL']} isLink />
                   <FieldCard
                     label="Override Hours"
-                    value={f['Override Hours Spent'] != null ? String(f['Override Hours Spent']) : undefined}
+                    value={f['Optional - Override Hours Spent'] != null ? String(f['Optional - Override Hours Spent']) : undefined}
                   />
                 </div>
 
+                {/* Automated checks */}
+                {f['checks_ran_at'] && (
+                  <div className="p-3 bg-white border border-gray-200 rounded-lg">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">Automated Checks</p>
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                      {([
+                        ['checks_01_github_valid', 'GitHub valid'],
+                        ['checks_02_playable_valid', 'Playable valid'],
+                        ['checks_03_readme_exists', 'README exists'],
+                        ['checks_04_has_image', 'Has image'],
+                        ['checks_05_3d_file', '3D file'],
+                        ['checks_06_pcb_file', 'PCB file'],
+                        ['checks_07_firmware_file', 'Firmware file'],
+                        ['checks_09_is_not_duplicate', 'Not duplicate'],
+                        ['checks_10_has_justification', 'Has justification'],
+                        ['checks_11_has_hours', 'Has hours'],
+                      ] as [keyof typeof f, string][]).map(([key, label]) => {
+                        const val = f[key];
+                        return (
+                          <div key={key} className="flex items-center gap-1.5">
+                            <span className={`text-xs font-bold ${val ? 'text-green-500' : 'text-red-500'}`}>
+                              {val ? '✓' : '✗'}
+                            </span>
+                            <span className={`text-xs ${val ? 'text-gray-600' : 'text-red-600 font-medium'}`}>
+                              {label}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
                 {/* Override justification */}
-                {f['Override Hours Spent Justification'] && (
+                {f['Optional - Override Hours Spent Justification'] && (
                   <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
                     <p className="text-xs font-semibold uppercase tracking-wide text-amber-700 mb-1.5">
                       Override Justification
                     </p>
                     <p className="text-sm text-amber-900 whitespace-pre-wrap leading-relaxed">
-                      {f['Override Hours Spent Justification']}
+                      {f['Optional - Override Hours Spent Justification']}
                     </p>
                   </div>
                 )}
@@ -720,6 +762,8 @@ export default function Page() {
                     {' '}/{' '}
                     <kbd className="bg-gray-100 border border-gray-200 px-1 py-0.5 rounded text-xs">i</kbd>
                     {' · '}
+                    <kbd className="bg-gray-100 border border-gray-200 px-1 py-0.5 rounded text-xs">s</kbd> skip
+                    {' '}
                     <kbd className="bg-gray-100 border border-gray-200 px-1 py-0.5 rounded text-xs">r</kbd> repo
                     {' '}
                     <kbd className="bg-gray-100 border border-gray-200 px-1 py-0.5 rounded text-xs">c</kbd> notes

@@ -12,11 +12,11 @@ export async function GET() {
     const p = projectMap.get(f.record_id);
     return {
       ...f,
-      justification: p?.fields['Override Hours Spent Justification'] ?? null,
+      justification: p?.fields['Optional - Override Hours Spent Justification'] ?? null,
       first_name: p?.fields['First Name'] ?? null,
       last_name: p?.fields['Last Name'] ?? null,
-      hours: p?.fields['Override Hours Spent'] ?? null,
-      program: p?.fields['YSWS–Name']?.[0] ?? null,
+      hours: p?.fields['Optional - Override Hours Spent'] ?? null,
+      program: p?.fields['YSWS']?.[0] ?? null,
     };
   });
 
@@ -49,7 +49,7 @@ export async function HEAD() {
     const projects = await fetchAllProjects();
     const processed = getProcessedRecordIds();
     const pending = projects.filter(
-      (p) => p.fields['Override Hours Spent Justification'] && !processed.has(p.id)
+      (p) => p.fields['Optional - Override Hours Spent Justification'] && !processed.has(p.id)
     ).length;
     return new NextResponse(null, {
       headers: { 'X-Pending-Count': String(pending) },

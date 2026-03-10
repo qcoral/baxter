@@ -98,11 +98,11 @@ export async function runAiReview(
 
   // Only process projects that have a justification and haven't been reviewed yet
   const toReview: ReviewRecord[] = projects
-    .filter((p) => p.fields['Override Hours Spent Justification'] && !processedIds.has(p.id))
+    .filter((p) => p.fields['Optional - Override Hours Spent Justification'] && !processedIds.has(p.id))
     .map((p) => ({
       record_id: p.id,
-      hours: p.fields['Override Hours Spent'] ?? null,
-      justification: p.fields['Override Hours Spent Justification']!,
+      hours: p.fields['Optional - Override Hours Spent'] ?? null,
+      justification: p.fields['Optional - Override Hours Spent Justification']!,
     }));
 
   const skipped = projects.filter((p) => processedIds.has(p.id)).length;

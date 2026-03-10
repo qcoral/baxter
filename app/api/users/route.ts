@@ -102,17 +102,17 @@ export async function GET() {
     const projectDetails: UserProject[] = userProjects.map((p) => {
       const review = reviewMap.get(p.id) ?? null;
       const flag = flagMap.get(p.id) ?? null;
-      const programName = p.fields['YSWS–Name']?.[0] ?? null;
+      const programName = p.fields['YSWS']?.[0] ?? null;
       return {
         id: p.id,
         playableUrl: p.fields['Playable URL'] ?? null,
         program: programName,
         isHardware: programName != null && hardwareNames.has(programName),
-        hoursLogged: p.fields['Hours Spent'] ?? null,
-        overrideHours: p.fields['Override Hours Spent'] ?? null,
+        hoursLogged: p.fields['Hours Self-Reported'] ?? null,
+        overrideHours: p.fields['Optional - Override Hours Spent'] ?? null,
         reviewStatus: review?.status ?? null,
         aiFlag: flag ? (flag.flagged ? 'flagged' : 'pass') : null,
-        approvedAt: p.fields['Approved At'] ?? null,
+        approvedAt: p.fields['Automation - First Submitted At'] ?? null,
       };
     });
 
