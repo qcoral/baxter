@@ -314,22 +314,24 @@ export default function Page() {
     projects.filter((p) => p.fields['Automation - Status'] !== 'TO DELETE IN UNIFIED'),
   [projects]);
 
+  const hasValidReview = (p: typeof projects[number]) => p.review && p.review.reviewer_id;
+
   const filteredProjects = useMemo(() => visibleProjects.filter((p) => {
     switch (filter) {
       case 'all': return true;
-      case 'unreviewed': return !p.review;
-      case 'good': return p.review?.status === 'good';
-      case 'minor_issue': return p.review?.status === 'minor_issue';
-      case 'major_issue': return p.review?.status === 'major_issue';
+      case 'unreviewed': return !hasValidReview(p);
+      case 'good': return hasValidReview(p) && p.review?.status === 'good';
+      case 'minor_issue': return hasValidReview(p) && p.review?.status === 'minor_issue';
+      case 'major_issue': return hasValidReview(p) && p.review?.status === 'major_issue';
     }
   }), [visibleProjects, filter]);
 
   const counts = useMemo(() => ({
     all: visibleProjects.length,
-    unreviewed: visibleProjects.filter((p) => !p.review).length,
-    good: visibleProjects.filter((p) => p.review?.status === 'good').length,
-    minor_issue: visibleProjects.filter((p) => p.review?.status === 'minor_issue').length,
-    major_issue: visibleProjects.filter((p) => p.review?.status === 'major_issue').length,
+    unreviewed: visibleProjects.filter((p) => !hasValidReview(p)).length,
+    good: visibleProjects.filter((p) => hasValidReview(p) && p.review?.status === 'good').length,
+    minor_issue: visibleProjects.filter((p) => hasValidReview(p) && p.review?.status === 'minor_issue').length,
+    major_issue: visibleProjects.filter((p) => hasValidReview(p) && p.review?.status === 'major_issue').length,
   }), [visibleProjects]);
 
   const handleReview = useCallback(
@@ -482,7 +484,7 @@ export default function Page() {
   }
 
   const f = selectedProject.fields;
-  const reviewStatus = selectedProject.review?.status;
+  const reviewStatus = hasValidReview(selectedProject) ? selectedProject.review?.status : undefined;
 
   return (
     <>
@@ -574,7 +576,7 @@ export default function Page() {
               ) : (
                 filteredProjects.map((p) => {
                   const isSelected = p.id === selectedId;
-                  const s = p.review?.status;
+                  const s = hasValidReview(p) ? p.review?.status : undefined;
                   const reviewerName =
                     p.review?.reviewer_id ? reviewersMap.get(p.review.reviewer_id)?.name : null;
                   const projectPresence = presence.filter(

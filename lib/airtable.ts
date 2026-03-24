@@ -32,10 +32,14 @@ export interface ProjectFields {
   'Description'?: string;
   'Screenshot'?: Screenshot[];
   'Review Type'?: string;
-  // Hours
+  // Hours (Blueprint)
   'Hours Self-Reported'?: number;
   'Optional - Override Hours Spent'?: number;
   'Optional - Override Hours Spent Justification'?: string;
+  // Hours (Unified)
+  'Hours Spent'?: number;
+  'Override Hours Spent'?: number;
+  'Override Hours Spent Justification'?: string;
   // Grant
   'Grant Amount'?: number;
   'Grant Tier'?: string;
@@ -59,11 +63,13 @@ export interface ProjectFields {
   'Mailed Kit'?: boolean;
   // Program / YSWS
   'YSWS'?: string[];           // program slugs (e.g. "hackpad") — matches hardware.toml
+  'YSWS–Name'?: string[];      // unified base: rollup of YSWS program names
   'YSWS Summary'?: string[];
   // Automation
   'Automation - First Submitted At'?: string;
   'Automation - Status'?: string;
   'Automation - YSWS Record ID'?: string;
+  'Approved At'?: string;       // unified base
   'Created'?: string;
   // Linked records
   'BP Project'?: string[];
@@ -92,10 +98,14 @@ export interface AirtableProject {
   fields: ProjectFields;
 }
 
-async function fetchFromView(view: string): Promise<AirtableProject[]> {
-  const token = process.env.BLUEPRINT_AIRTABLE_ACCESS_TOKEN;
-  const baseId = process.env.BLUEPRINT_AIRTABLE_BASE_ID;
-  const tableId = process.env.BLUEPRINT_AIRTABLE_TABLE_ID;
+interface AirtableCredentials {
+  token: string | undefined;
+  baseId: string | undefined;
+  tableId: string | undefined;
+}
+
+async function fetchFromView(view: string, credentials: AirtableCredentials, sortField: string): Promise<AirtableProject[]> {
+  const { token, baseId, tableId } = credentials;
 
   const all: AirtableProject[] = [];
   let offset: string | undefined;
@@ -103,7 +113,7 @@ async function fetchFromView(view: string): Promise<AirtableProject[]> {
   do {
     const params = new URLSearchParams({
       view,
-      'sort[0][field]': 'Automation - First Submitted At',
+      'sort[0][field]': sortField,
       'sort[0][direction]': 'asc',
     });
     if (offset) params.set('offset', offset);
@@ -132,7 +142,7 @@ async function fetchFromView(view: string): Promise<AirtableProject[]> {
 const CACHE_TTL_MS = 5 * 60 * 1000;
 
 // Creates an independent in-memory cache + single-flight fetcher for one Airtable view
-function makeViewFetcher(envVar: string) {
+function makeViewFetcher(envVar: string, credentials: AirtableCredentials, sortField: string) {
   let cache: { projects: AirtableProject[]; fetchedAt: number } | null = null;
   let pending: Promise<AirtableProject[]> | null = null;
 
@@ -143,7 +153,7 @@ function makeViewFetcher(envVar: string) {
   async function fetch(): Promise<AirtableProject[]> {
     if (cache && Date.now() - cache.fetchedAt < CACHE_TTL_MS) return cache.projects;
     if (pending) return pending;
-    pending = fetchFromView(process.env[envVar]!)
+    pending = fetchFromView(process.env[envVar]!, credentials, sortField)
       .then((projects) => { cache = { projects, fetchedAt: Date.now() }; pending = null; return projects; })
       .catch((err) => { pending = null; throw err; });
     return pending;
@@ -152,8 +162,20 @@ function makeViewFetcher(envVar: string) {
   return { fetch, invalidate };
 }
 
-const blueprintView = makeViewFetcher('AIRTABLE_VIEW');
-const hardwareView = makeViewFetcher('HARDWARE_AIRTABLE_VIEW');
+const blueprintCredentials: AirtableCredentials = {
+  token: process.env.BLUEPRINT_AIRTABLE_ACCESS_TOKEN,
+  baseId: process.env.BLUEPRINT_AIRTABLE_BASE_ID,
+  tableId: process.env.BLUEPRINT_AIRTABLE_TABLE_ID,
+};
+
+const unifiedCredentials: AirtableCredentials = {
+  token: process.env.UNIFIED_AIRTABLE_ACCESS_TOKEN,
+  baseId: process.env.UNIFIED_AIRTABLE_BASE_ID,
+  tableId: process.env.UNIFIED_AIRTABLE_TABLE_ID,
+};
+
+const blueprintView = makeViewFetcher('AIRTABLE_VIEW', blueprintCredentials, 'Automation - First Submitted At');
+const hardwareView = makeViewFetcher('HARDWARE_AIRTABLE_VIEW', unifiedCredentials, 'Approved At');
 
 export const fetchAllProjects = blueprintView.fetch;
 export const invalidateProjectsCache = blueprintView.invalidate;
