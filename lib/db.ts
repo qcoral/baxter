@@ -98,11 +98,15 @@ export interface Reviewer {
 }
 
 export function getAllReviews(): Review[] {
-  return getDb().prepare('SELECT * FROM reviews').all() as Review[];
+  const reviews = getDb().prepare('SELECT * FROM reviews').all() as Review[];
+  console.log(`[db] getAllReviews: returning ${reviews.length} reviews`);
+  return reviews;
 }
 
 export function deleteReview(recordId: string): void {
-  getDb().prepare('DELETE FROM reviews WHERE record_id = ?').run(recordId);
+  console.log(`[db] deleteReview: record_id=${recordId}`);
+  const result = getDb().prepare('DELETE FROM reviews WHERE record_id = ?').run(recordId);
+  console.log(`[db] deleteReview: changes=${result.changes}`);
 }
 
 export function upsertReview(
@@ -111,7 +115,8 @@ export function upsertReview(
   notes: string,
   reviewerId?: string | null
 ): void {
-  getDb()
+  console.log(`[db] upsertReview: record_id=${recordId} status=${status} reviewer=${reviewerId ?? 'null'}`);
+  const result = getDb()
     .prepare(
       `INSERT INTO reviews (record_id, status, notes, reviewed_at, reviewer_id)
        VALUES (?, ?, ?, datetime('now'), ?)
@@ -122,6 +127,7 @@ export function upsertReview(
          reviewer_id = excluded.reviewer_id`
     )
     .run(recordId, status, notes, reviewerId ?? null);
+  console.log(`[db] upsertReview: changes=${result.changes}`);
 }
 
 export function getAllReviewers(): Reviewer[] {
